@@ -3,6 +3,8 @@
 // assmue alpha = 1, beta = 1
 // col-major matrix, NN
 
+constexpr bool dgemm_check = false;
+
 #include <iostream>
 #include <cstdlib>
 #include <cstdint>
@@ -396,23 +398,29 @@ int main(int argc, const char *argv[])
     memcpy(c2, c1, m * n * sizeof(double));
 
     // warm up
-    // ref_dgemm(m, n, k, a, b, c1);
-    opt_dgemm(m, n, k, a, b, c2);
-    kernel_cost = 0.0;
-
-    // if (!compare(c1, c2, m * n)) {
-    //     aligned_free(a);
-    //     aligned_free(b);
-    //     aligned_free(c1);
-    //     aligned_free(c2);
-    //     return 1;
-    // }
+    if constexpr (dgemm_check) {
+        ref_dgemm(m, n, k, a, b, c1);
+        opt_dgemm(m, n, k, a, b, c2);
+        if (!compare(c1, c2, m * n)) {
+            aligned_free(a);
+            aligned_free(b);
+            aligned_free(c1);
+            aligned_free(c2);
+            return 1;
+        }
+    }
 
     Timer timer;
-    // timer.tick();
-    // ref_dgemm(m, n, k, a, b, c1);
-    // double ref = timer.tock();
+    // if constexpr (dgemm_check) {
+    //     ref_dgemm(m, n, k, a, b, c1);
+    //     timer.tick();
+    //     ref_dgemm(m, n, k, a, b, c1);
+    //     double ref = timer.tock();
+    //     cout << "ref gf: " << 2 * m * n * k / (ref * 1e+9)  << endl;
+    //     opt_dgemm(m, n, k, a, b, c2);
+    // }
 
+    kernel_cost = 0.0;
     timer.tick();
     opt_dgemm(m, n, k, a, b, c2);
     double opt = timer.tock();
@@ -420,11 +428,10 @@ int main(int argc, const char *argv[])
     double opt_gf = 2 * m * n * k / (opt * 1e+9);
     double opt_kernel_gf = 2 * m * n * k / (kernel_cost * 1e+9);
 
-    // cout << "ref gf: " << 2 * m * n * k / (ref * 1e+9)  << endl;
     cout << "opt gf: " << opt_gf << endl;
 
-    cout << "cp usage = " << opt_gf * 100 / 70.4 << "%" << endl;
-    cout << "kernel cp usage = " << opt_kernel_gf * 100 / 70.4 << "%" << endl;
+    cout << "cp usage = " << opt_gf * 100 / gf_limit << "%" << endl;
+    cout << "kernel cp usage = " << opt_kernel_gf * 100 / gf_limit << "%" << endl;
 
     aligned_free(a);
     aligned_free(b);

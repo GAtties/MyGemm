@@ -1,4 +1,4 @@
-CXX = gcc
+CXX ?= gcc
 
 CXXFLAGS = -fopenmp-simd -std=c++20 -m64 -DNDEBUG -march=native -O3
 # CXXFLAGS = -fopenmp-simd -std=c++20 -m64 -DNDEBUG -march=native -O0 -g -fsanitize=address
