@@ -3,7 +3,7 @@
 // assmue alpha = 1, beta = 1
 // col-major matrix, NN
 
-constexpr bool dgemm_check = false;
+constexpr bool dgemm_check = true;
 
 #include <iostream>
 #include <cstdlib>
@@ -13,7 +13,10 @@ constexpr bool dgemm_check = false;
 #include <cassert>
 #include <cstring>
 
+#include <omp.h>
+
 #include "test_utils.hpp"
+#include "ref.hpp"
 
 using std::cout;
 using std::endl;
@@ -66,17 +69,6 @@ constexpr double gf_limit = frequency * 16;
 // of real registers just in case.
 
 // kernel: 8*4
-
-void ref_dgemm(i64 m, i64 n, i64 k, const double *a, const double *b, double *c)
-{
-    for (i64 i = 0; i < m; i++) {
-        for (i64 j = 0; j < n; j++) {
-            for (i64 p = 0; p < k; p++) {
-                c[i + j * m] += a[i + p * m] * b[p + j * k];
-            }
-        }
-    }
-}
 
 #include <immintrin.h>
 
@@ -379,6 +371,8 @@ int main(int argc, const char *argv[])
     i64 m, n, k;
     m = n = k = 1024;
 
+    omp_set_num_threads(1);
+
     i64 *p[] = { &m, &n, &k };
 
     for (int i = 0; i < std::min(argc - 1, 3); i++) {
@@ -411,14 +405,14 @@ int main(int argc, const char *argv[])
     }
 
     Timer timer;
-    // if constexpr (dgemm_check) {
-    //     ref_dgemm(m, n, k, a, b, c1);
-    //     timer.tick();
-    //     ref_dgemm(m, n, k, a, b, c1);
-    //     double ref = timer.tock();
-    //     cout << "ref gf: " << 2 * m * n * k / (ref * 1e+9)  << endl;
-    //     opt_dgemm(m, n, k, a, b, c2);
-    // }
+    if constexpr (dgemm_check) {
+        ref_dgemm(m, n, k, a, b, c1);
+        timer.tick();
+        ref_dgemm(m, n, k, a, b, c1);
+        double ref = timer.tock();
+        cout << "ref gf: " << 2 * m * n * k / (ref * 1e+9)  << endl;
+        opt_dgemm(m, n, k, a, b, c2);
+    }
 
     kernel_cost = 0.0;
     timer.tick();
@@ -428,7 +422,7 @@ int main(int argc, const char *argv[])
     double opt_gf = 2 * m * n * k / (opt * 1e+9);
     double opt_kernel_gf = 2 * m * n * k / (kernel_cost * 1e+9);
 
-    cout << "opt gf: " << opt_gf << endl;
+    cout << "my gemm gf: " << opt_gf << endl;
 
     cout << "cp usage = " << opt_gf * 100 / gf_limit << "%" << endl;
     cout << "kernel cp usage = " << opt_kernel_gf * 100 / gf_limit << "%" << endl;
